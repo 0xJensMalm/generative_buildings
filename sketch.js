@@ -23,17 +23,19 @@ let themes = [
 let currentThemeIndex = 0;
 let color = themes[currentThemeIndex].bgColor;
 let frameColor = themes[currentThemeIndex].strokeColor; // Color of the outer frame
-let frameThickness = 100; // Thickness of the outer frame
 
-const branchingFactor = 0.02;
-const noiseFactor = 5;
+let settings = {
+  branchingFactor: 0.02,
+  noiseFactor: 5,
+  agentSpeed: 10,
+  frameThickness: 100,
+  instantDraw: true,
+  padding: 0.1,
+};
 const agentArray = [];
-const agentSpeed = 10;
 
 let world;
 let x, y, heading, incr_heading, newX, newY;
-
-let instantDraw = true; // Set to true for instant drawing, false for gradual drawing
 
 // New variables for centering and padding
 let points = [];
@@ -62,22 +64,22 @@ function setup() {
 function drawFrame() {
   push(); // Save the current drawing state
   stroke(frameColor);
-  strokeWeight(frameThickness);
+  strokeWeight(settings.frameThickness);
   noFill();
 
   // Adjust the rectangle to go slightly outside the canvas boundaries to eliminate white space
   rect(
-    -frameThickness / 2,
-    -frameThickness / 2,
-    width + frameThickness,
-    height + frameThickness
+    -settings.frameThickness / 2,
+    -settings.frameThickness / 2,
+    width + settings.frameThickness,
+    height + settings.frameThickness
   );
 
   pop(); // Restore the previous drawing state to avoid affecting other drawings
 }
 
 function draw() {
-  if (instantDraw) {
+  if (settings.instantDraw) {
     let agent_j;
     for (let j = 0; j < agentArray.length; j++) {
       agent_j = agentArray[j];
@@ -92,7 +94,7 @@ function draw() {
     let structureHeight = maxY - minY;
 
     // Define padding (e.g., 10% of the canvas size)
-    let padding = 0.1;
+    let padding = settings.padding;
     let availableWidth = width * (1 - 2 * padding);
     let availableHeight = height * (1 - 2 * padding);
 
@@ -129,7 +131,7 @@ function draw() {
     noLoop(); // Stop looping since the drawing is complete
   } else {
     let agent_j;
-    for (let i = 0; i < agentSpeed; i++) {
+    for (let i = 0; i < settings.agentSpeed; i++) {
       for (let j = 0; j < agentArray.length; j++) {
         agent_j = agentArray[j];
         agent_j.next();
@@ -164,7 +166,7 @@ function* agent() {
     heading = field_i.heading;
 
     let num;
-    if (random() < branchingFactor) {
+    if (random() < settings.branchingFactor) {
       num = 2;
     } else {
       num = 1;
@@ -220,5 +222,7 @@ function keyPressed() {
     color = themes[currentThemeIndex].bgColor;
     frameColor = themes[currentThemeIndex].strokeColor;
     redraw(); // Redraw with new theme
+  } else if (key === "s" || key === "S") {
+    console.log("Current settings:", settings);
   }
 }
