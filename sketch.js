@@ -10,14 +10,19 @@ let themes = [
     strokeColor: "#f5f5dc",
   },
   {
-    name: "Dark Gray - Light Pink",
-    bgColor: "#2e2e2e",
-    strokeColor: "#ffc0cb",
+    name: "Pantone #177BW",
+    bgColor: "#090d01",
+    strokeColor: "#f3f2f0",
   },
   {
-    name: "Deep Purple - Light Cyan",
-    bgColor: "#301934",
-    strokeColor: "#e0ffff",
+    name: "Pantone #255",
+    bgColor: "#d7ccb9",
+    strokeColor: "#f25036",
+  },
+  {
+    name: "Golid Duck_A",
+    bgColor: "#ebdec5",
+    strokeColor: "#d39a0e",
   },
 ];
 let currentThemeIndex = 0;
@@ -25,8 +30,8 @@ let color = themes[currentThemeIndex].bgColor;
 let frameColor = themes[currentThemeIndex].strokeColor; // Color of the outer frame
 
 let settings = {
-  branchingFactor: 0.02,
-  noiseFactor: 5,
+  branchingFactor: 0.02, //0.02
+  noiseFactor: 0.01, //0 = default. //0.01 = dritfet!
   agentSpeed: 10,
   frameThickness: 100,
   instantDraw: true,
@@ -40,6 +45,9 @@ let x, y, heading, incr_heading, newX, newY;
 // New variables for centering and padding
 let points = [];
 let minX, maxX, minY, maxY;
+
+// Initialize noise offset
+let noiseOffset = 0;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -165,6 +173,13 @@ function* agent() {
     y = field_i.y;
     heading = field_i.heading;
 
+    // Use noise to influence heading
+    let noiseValue = noise(noiseOffset) * TWO_PI; // Scale noise to full rotation
+    let noiseInfluence = map(settings.noiseFactor, 0, 10, 0, PI / 4); // Adjust mapping as needed
+    heading += noiseValue * noiseInfluence;
+
+    noiseOffset += 0.01; // Increment noise offset for smooth variation
+
     let num;
     if (random() < settings.branchingFactor) {
       num = 2;
@@ -224,5 +239,8 @@ function keyPressed() {
     redraw(); // Redraw with new theme
   } else if (key === "s" || key === "S") {
     console.log("Current settings:", settings);
+  } else if (key === "r" || key === "R") {
+    console.log("Refreshing the sketch...");
+    location.reload(); // Reload the browser page
   }
 }
