@@ -1,13 +1,14 @@
-let themes = [
+// Theme Definitions
+const themes = [
   {
     name: "Dark Blue - Light Yellow",
     bgColor: "#001b33",
     strokeColor: "#ffffcc",
   },
   {
-    name: "Dark Green - Light Beige",
-    bgColor: "#003300",
-    strokeColor: "#f5f5dc",
+    name: "Fid01",
+    bgColor: "#b7d9cd",
+    strokeColor: "#d12a2f",
   },
   {
     name: "Pantone #177BW",
@@ -20,208 +21,152 @@ let themes = [
     strokeColor: "#f25036",
   },
   {
-    name: "Golid Duck_A",
+    name: "Gold Duck_A",
     bgColor: "#ebdec5",
     strokeColor: "#d39a0e",
   },
 ];
+
 let currentThemeIndex = 0;
-let color = themes[currentThemeIndex].bgColor;
-let frameColor = themes[currentThemeIndex].strokeColor; // Color of the outer frame
 
-let settings = {
-  branchingFactor: 0.02, //0.02
-  noiseFactor: 0.01, //0 = default. //0.01 = dritfet!
+// Frame and Padding Settings
+const frameThickness = 10; // Thickness for frames
+const mattingPadding = 100; // Space between outer edges and inner frame
+const structurePadding = 50; // Space between inner frame and structure
+
+// Generative Structure Settings
+const settings = {
+  branchingFactor: 0.02,
+  noiseFactor: 0.02, //0.02 = default - 0.002 = straight
   agentSpeed: 10,
-  frameThickness: 100,
   instantDraw: true,
-  padding: 0.1,
 };
+
+// Agents and World Setup
 const agentArray = [];
-
 let world;
-let x, y, heading, incr_heading, newX, newY;
 
-// New variables for centering and padding
+// Structure Variables
 let points = [];
 let minX, maxX, minY, maxY;
 
-// Initialize noise offset
+// Noise Offset for Perlin Noise
 let noiseOffset = 0;
 
+// p5.js Setup Function
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  stroke(themes[currentThemeIndex].strokeColor);
-
-  background(themes[currentThemeIndex].bgColor);
-  noFill();
-
-  incr_heading = random([PI / 3, -PI / 3]);
-
-  world = array2d(); // Initialize array width * height with false
-
-  agentArray.length = 0;
-
-  agentArray.push(agent());
-
   frameRate(60);
-
-  drawFrame(); // Call function to draw the frame
+  resetSketch();
 }
 
-function drawFrame() {
-  push(); // Save the current drawing state
-  stroke(frameColor);
-  strokeWeight(settings.frameThickness);
-  noFill();
-
-  // Adjust the rectangle to go slightly outside the canvas boundaries to eliminate white space
-  rect(
-    -settings.frameThickness / 2,
-    -settings.frameThickness / 2,
-    width + settings.frameThickness,
-    height + settings.frameThickness
-  );
-
-  pop(); // Restore the previous drawing state to avoid affecting other drawings
-}
-
+// p5.js Draw Function
 function draw() {
   if (settings.instantDraw) {
-    let agent_j;
-    for (let j = 0; j < agentArray.length; j++) {
-      agent_j = agentArray[j];
+    // Run all agents to completion
+    for (const agent of agentArray) {
       while (true) {
-        let result = agent_j.next();
+        const result = agent.next();
         if (result.done) break;
       }
     }
 
-    // Compute the bounding box dimensions
-    let structureWidth = maxX - minX;
-    let structureHeight = maxY - minY;
+    // Calculate Structure Bounds
+    const structureWidth = maxX - minX;
+    const structureHeight = maxY - minY;
 
-    // Define padding (e.g., 10% of the canvas size)
-    let padding = settings.padding;
-    let availableWidth = width * (1 - 2 * padding);
-    let availableHeight = height * (1 - 2 * padding);
+    // Calculate Available Space (subtracting both matting and structure padding)
+    const availableWidth = width - 2 * mattingPadding - 2 * structurePadding;
+    const availableHeight = height - 2 * mattingPadding - 2 * structurePadding;
 
-    // Compute scaling factor
-    let scaleFactor = Math.min(
+    // Determine Scaling Factor
+    const scaleFactor = Math.min(
       availableWidth / structureWidth,
       availableHeight / structureHeight
     );
 
-    // Compute translation offsets to center the structure
-    let offsetX =
-      (width - structureWidth * scaleFactor) / 2 - minX * scaleFactor;
-    let offsetY =
-      (height - structureHeight * scaleFactor) / 2 - minY * scaleFactor;
+    // Calculate Centers of structure and available space
+    const structureCenterX = (minX + maxX) / 2;
+    const structureCenterY = (minY + maxY) / 2;
 
-    // Clear the canvas
-    background(color);
+    const availableCenterX =
+      mattingPadding + structurePadding + availableWidth / 2;
+    const availableCenterY =
+      mattingPadding + structurePadding + availableHeight / 2;
 
-    // Draw the points with scaling and translation
+    // Determine Translation Offsets to center the structure
+    const offsetX = availableCenterX - structureCenterX * scaleFactor;
+    const offsetY = availableCenterY - structureCenterY * scaleFactor;
+
+    // Set Background Based on Current Theme
+    background(themes[currentThemeIndex].bgColor);
+    noFill();
+
+    // Draw Inner Frame
+    drawInnerFrame();
+
+    // Draw Generative Structure
     push();
-    translate(offsetX, offsetY);
-    scale(scaleFactor);
-
+    translate(offsetX, offsetY); // Apply the calculated translation
+    scale(scaleFactor); // Apply the calculated scaling
     stroke(themes[currentThemeIndex].strokeColor);
-    strokeWeight(1); // Reset stroke thickness for the structure
-    for (let i = 0; i < points.length; i++) {
-      let p = points[i];
-      rect(p.x, p.y, 1 / scaleFactor, 1 / scaleFactor); // Adjust size for scaling
+    strokeWeight(1);
+    for (const p of points) {
+      rect(p.x, p.y, 1 / scaleFactor, 1 / scaleFactor); // Adjust drawing based on scaling
     }
     pop();
 
-    drawFrame(); // Redraw the frame after scaling
-
-    noLoop(); // Stop looping since the drawing is complete
+    noLoop(); // Stop drawing since rendering is complete
   } else {
-    let agent_j;
+    // Interactive Drawing Mode
     for (let i = 0; i < settings.agentSpeed; i++) {
-      for (let j = 0; j < agentArray.length; j++) {
-        agent_j = agentArray[j];
-        agent_j.next();
+      for (const agent of agentArray) {
+        agent.next();
       }
     }
   }
 }
 
-function* agent() {
-  let stack = [];
-  let field_0, field_i;
-
-  x = width / 2;
-  y = height / 2;
-
-  minX = x;
-  maxX = x;
-  minY = y;
-  maxY = y;
-
-  heading = incr_heading;
-
-  field_0 = new field(x, y, heading);
-  stack.push(field_0);
-  world.set(x, y);
-
-  while (stack.length) {
-    field_i = stack.pop();
-
-    x = field_i.x;
-    y = field_i.y;
-    heading = field_i.heading;
-
-    // Use noise to influence heading
-    let noiseValue = noise(noiseOffset) * TWO_PI; // Scale noise to full rotation
-    let noiseInfluence = map(settings.noiseFactor, 0, 10, 0, PI / 4); // Adjust mapping as needed
-    heading += noiseValue * noiseInfluence;
-
-    noiseOffset += 0.01; // Increment noise offset for smooth variation
-
-    let num;
-    if (random() < settings.branchingFactor) {
-      num = 2;
-    } else {
-      num = 1;
-    }
-
-    for (let i = 0; i < num; i++, heading += incr_heading) {
-      newX = x;
-      newY = y;
-
-      do {
-        newX += cos(heading);
-        newY += sin(heading);
-      } while (floor(newX) === floor(x) && floor(newY) === floor(y));
-
-      if (newX <= 0 || newX >= width || newY <= 0 || newY >= height) {
-        return; // Exit the generator function
-      }
-      if (!world.canMoveTo(newX, newY)) continue;
-      stack.push(new field(newX, newY, heading));
-      world.set(newX, newY);
-
-      yield;
-    }
-  }
+// Function to Draw the Inner Frame
+function drawInnerFrame() {
+  push();
+  stroke(themes[currentThemeIndex].strokeColor);
+  strokeWeight(frameThickness);
+  noFill();
+  rect(
+    mattingPadding,
+    mattingPadding,
+    width - 2 * mattingPadding,
+    height - 2 * mattingPadding
+  );
+  pop();
 }
 
+// Function to Initialize a 2D Array Representing the World
 function array2d() {
   const array = Array.from({ length: width }, () => Array(height).fill(false));
 
   return {
     canMoveTo: (x, y) => {
-      return array[floor(x)][floor(y)] === false;
+      const fx = floor(x);
+      const fy = floor(y);
+      // Check boundaries with padding
+      if (
+        fx < mattingPadding + structurePadding ||
+        fx >= width - mattingPadding - structurePadding ||
+        fy < mattingPadding + structurePadding ||
+        fy >= height - mattingPadding - structurePadding
+      )
+        return false;
+      return !array[fx][fy];
     },
     set: (x, y) => {
-      array[floor(x)][floor(y)] = true;
+      const fx = floor(x);
+      const fy = floor(y);
+      array[fx][fy] = true;
+      points.push({ x, y });
 
-      // Store the point
-      points.push({ x: x, y: y });
-
-      // Update bounding box
+      // Update Bounding Box
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
       if (y < minY) minY = y;
@@ -230,17 +175,118 @@ function array2d() {
   };
 }
 
+// Generator Function for Agent Behavior
+function* agent() {
+  const stack = [];
+  let field;
+
+  const startX = width / 2;
+  const startY = height / 2;
+
+  // Initialize Bounding Box
+  minX = startX;
+  maxX = startX;
+  minY = startY;
+  maxY = startY;
+
+  let heading = random([PI / 3, -PI / 3]);
+
+  const initialField = new Field(startX, startY, heading);
+  stack.push(initialField);
+  world.set(startX, startY);
+
+  while (stack.length) {
+    field = stack.pop();
+    const { x, y, heading: currentHeading } = field;
+
+    // Apply Perlin Noise to Heading
+    const noiseValue = noise(noiseOffset) * TWO_PI;
+    const noiseInfluence = map(settings.noiseFactor, 0, 10, 0, PI / 4);
+    let newHeading = currentHeading + noiseValue * noiseInfluence;
+    noiseOffset += 0.01;
+
+    // Determine Number of Branches
+    const numBranches = random() < settings.branchingFactor ? 2 : 1;
+
+    for (let i = 0; i < numBranches; i++, newHeading += PI / 3) {
+      let newX = x;
+      let newY = y;
+
+      // Move in the Direction of the Current Heading
+      do {
+        newX += cos(newHeading);
+        newY += sin(newHeading);
+      } while (floor(newX) === floor(x) && floor(newY) === floor(y));
+
+      // Check Boundary Conditions
+      if (
+        newX <= mattingPadding + structurePadding ||
+        newX >= width - mattingPadding - structurePadding ||
+        newY <= mattingPadding + structurePadding ||
+        newY >= height - mattingPadding - structurePadding
+      ) {
+        continue; // Skip if out of bounds
+      }
+
+      // Check if the Position is Already Occupied
+      if (!world.canMoveTo(newX, newY)) continue;
+
+      // Add New Field to Stack and Mark Position as Occupied
+      stack.push(new Field(newX, newY, newHeading));
+      world.set(newX, newY);
+
+      yield; // Yield control back to the draw loop
+    }
+  }
+}
+
+// p5.js Key Pressed Function for Interactivity
 function keyPressed() {
   if (key === "t" || key === "T") {
+    // Cycle to the Next Theme
     currentThemeIndex = (currentThemeIndex + 1) % themes.length;
     console.log("New theme:", themes[currentThemeIndex].name);
-    color = themes[currentThemeIndex].bgColor;
-    frameColor = themes[currentThemeIndex].strokeColor;
-    redraw(); // Redraw with new theme
+    resetSketch();
   } else if (key === "s" || key === "S") {
+    // Log Current Settings
     console.log("Current settings:", settings);
   } else if (key === "r" || key === "R") {
+    // Reset the Sketch
     console.log("Refreshing the sketch...");
-    location.reload(); // Reload the browser page
+    resetSketch();
   }
+}
+
+// Function to Reset and Redraw the Sketch
+function resetSketch() {
+  // Clear Canvas with New Background Color
+  background(themes[currentThemeIndex].bgColor);
+  points = [];
+  minX = width / 2;
+  maxX = width / 2;
+  minY = height / 2;
+  maxY = height / 2;
+  noiseOffset = 0;
+
+  // Initialize World and Agents
+  world = array2d();
+  agentArray.length = 0;
+  agentArray.push(agent());
+
+  loop(); // Restart the draw loop
+}
+
+// Field Class Definition
+class Field {
+  constructor(x, y, heading) {
+    this.x = x;
+    this.y = y;
+    this.heading = heading;
+  }
+}
+
+// p5.js Window Resized Function to Handle Canvas Resize
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  resetSketch();
 }
